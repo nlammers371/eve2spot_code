@@ -56,7 +56,7 @@ minDP = 14;     % particles with fewer than minDP points will be flagged
 pctSparsity = 50;   %
 twoSpotFlag = true;
 minTime = 0*60; % take no fluorescence data prior to this point
-tresInterpFloor = 20;
+tresInterpFloor = 15;
 SpotChannelIndex = 1; % this does nothing at the moment, but can serve as a starting point if ever we wish to analyze two-spot-two-color data
 
 %% %%%%%%%%%%%%%%%%%%%%%%% Process input parameters %%%%%%%%%%%%%%%%%%%%%%%
@@ -326,7 +326,7 @@ end
 disp('interpolating data...')
 
 % generate interpolation fields
-interpFields = {'fluo','xPosParticle','yPosParticle'};
+interpFields = {'fluo','xPosParticle','yPosParticle','APPosNucleus'};
 
 % calculate interpolation time
 % sample true experimental res times
