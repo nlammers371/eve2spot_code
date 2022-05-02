@@ -236,11 +236,16 @@ saveas(on_time_fig,[figPath 'on_time_scatter.png'])
 saveas(on_time_fig,[figPath 'on_time_scatter.pdf'])
 
 
-on_var_prior = 0.5*mean((on_time_vec1 - randsample(on_time_vec2,length(on_time_vec2),false)).^2);
+on_var_prior = 0.5*mean((on_time_vec1 - randsample(on_time_vec2,length(on_time_vec2),false)).^2)
+on_sigma_prior = sqrt(on_var_prior)
 % on_var_post = on_mdl.RMSE^2;
-on_var_post = 0.5*mean((on_time_vec1-on_time_vec2).^2);
+on_var_post = 0.5*mean((on_time_vec1-on_time_vec2).^2)
+on_sigma_post = sqrt(on_var_post)
+
+on_var_ext = on_var_prior-on_var_post
+on_sigma_ext = sqrt(on_var_ext)
 % on_var_post_alt = 0.5*mean((on2_pd_full'-on_time_vec2).^2)
-info_gain_on = 0.5*log(on_var_prior/on_var_post) * log2(exp(1));
+info_gain_on = 0.5*log(on_var_prior/on_var_post) * log2(exp(1))
 
 
 %% Off times
@@ -301,9 +306,13 @@ saveas(off_time_fig,[figPath 'off_time_scatter.png'])
 saveas(off_time_fig,[figPath 'off_time_scatter.pdf'])
 
 % calculate initial variance and residual
-off_var_prior = 0.5*mean((off_time_vec1-randsample(off_time_vec2,length(off_time_vec2),false)).^2);%var([off_time_vec1 off_time_vec2]);
+off_var_prior = 0.5*mean((off_time_vec1-randsample(off_time_vec2,length(off_time_vec2),false)).^2)%var([off_time_vec1 off_time_vec2]);
+off_sigma_prior = sqrt(off_var_prior)
+
 % off_var_post = off_mdl.RMSE^2;
-off_var_post = 0.5*mean((off_time_vec1-off_time_vec2).^2);
+off_var_post = 0.5*mean((off_time_vec1-off_time_vec2).^2)
+off_sigma_post = sqrt(off_var_post)
+
 info_gain_off = 0.5*log(off_var_prior/off_var_post) * log2(exp(1))
 
 %% average fluo
@@ -378,8 +387,12 @@ set(gcf,'color','w');
 saveas(fluo_fig,[figPath 'fluo_scatter.png'])
 saveas(fluo_fig,[figPath 'fluo_scatter.pdf'])
 
-% calculate initial variance and residual
-fluo_var_prior = 0.5*nanmean((fluo_vec1-randsample(fluo_vec2,length(fluo_vec2))).^2);%^nanvar(fluo_vec2);
-fluo_var_post = 0.5*nanmean((fluo_vec1-fluo_vec2).^2);
+%% calculate initial variance and residual
+fluo_var_prior = 0.5*nanmean((fluo_vec1-randsample(fluo_vec2,length(fluo_vec2))).^2)%^nanvar(fluo_vec2);
+fluo_sigam_prior = sqrt(fluo_var_prior)
+fluo_var_post = 0.5*nanmean((fluo_vec1-fluo_vec2).^2)
+fluo_sigma_post = sqrt(fluo_var_post)
+fluo_var_ext = fluo_var_prior - fluo_var_post
+fluo_sigma_ext = sqrt(fluo_var_ext)
 % fluo_var_post = fluo_mdl.RMSE^2;
 info_gain = 0.5*log2(fluo_var_prior/fluo_var_post) * log2(exp(1))

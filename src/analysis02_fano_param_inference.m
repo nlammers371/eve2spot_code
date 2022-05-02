@@ -55,45 +55,8 @@ for n = 1:length(nc_id_index2)
     time_array(ismember(masterTimeVec,t2_vec),n,2) = masterTimeVec(ismember(masterTimeVec,t2_vec));
 end
 
-%% calculate total and intrinsic variance for qualitfying nuclei as a function of space and time
-time_window = 1.5*60;
-ap_window = 2.5;
-min_nc = 20;
-
-ap_axis = 22.5:1:92.5;
-time_axis = (12.5:1:47.5)*60;
-
-total_variance_array = NaN(length(time_axis),length(ap_axis));
-intrinsic_variance_array = NaN(length(time_axis),length(ap_axis));
-mean_array = NaN(length(time_axis),length(ap_axis));
-
-for a = 1:length(ap_axis)
-    apc = ap_axis(a);
-    ap_filter = ap_array>=apc-ap_window & ap_array<=apc+ap_window;
-    for t = 1:length(time_axis)       
-       tc = time_axis(t);
-       ref_n = sum(masterTimeVec >= tc-time_window & masterTimeVec <= tc+time_window);
-       time_filter = time_array >= tc-time_window & time_array <= tc+time_window;
-       
-       % combine filters
-       at_filter_full = ap_filter & time_filter(:,:,1) & time_filter(:,:,2);
-       at_filter = nansum(ap_filter & time_filter(:,:,1) & time_filter(:,:,2),1);
-       f_vec = nansum(fluo_array.*repmat(ap_filter,1,1,2),1);
-       f1_vec = f_vec(:,:,1);
-       f2_vec = f_vec(:,:,2);
-       f1_mean_vec = f1_vec(at_filter==ref_n)/ref_n;
-       f2_mean_vec = f2_vec(at_filter==ref_n)/ref_n;
-       
-       % add values to array
-       if length(f1_mean_vec) >= min_nc
-           total_variance_array(t,a) = 0.5*mean((f1_mean_vec-randsample(f2_mean_vec,length(f2_mean_vec),false)).^2);
-           intrinsic_variance_array(t,a) = 0.5*mean((f1_mean_vec-f2_mean_vec).^2);
-           mean_array(t,a) = mean([f1_mean_vec f2_mean_vec]);
-       end
-    end
-end    
-
-%% Look at Fano Factor
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+% Look at Fano Factor
 
 % For this analysis, we will group traces by fluorescence and align them by
 % their start, the initial object is to examine how the Fano Factor for
@@ -159,9 +122,9 @@ for f = 1:n_fluo_groups
         % combine fields
         [t_vec_i,i12,i21] = intersect(t1_vec,t2_vec);
         f1_int = f1_vec(i12);
-        f1_int = cumsum(f1_int(1:length(fano_time_vec)))';
+        f1_int = cumsum(f1_int(1:length(fano_time_vec)))'/140*15;
         f2_int = f2_vec(i21);
-        f2_int = cumsum(f2_int(1:length(fano_time_vec)))';
+        f2_int = cumsum(f2_int(1:length(fano_time_vec)))'/140*15;
         
         % add to arrays
 %         mean_array(:,n) = mean([f1_int f2_int],2);
@@ -276,7 +239,7 @@ saveas(int_vs_fluo,[figPath 'int_vs_fluo.pdf'])
 T = 140/60; % approximate elongation time
 npt = 1e3;
 % koff_factor = 3;
-eff2_factor = 3.5; % this derives from observation in Lammers2020 that equivalent 2 state system tends to have ~3-4 fold higher off rate
+eff2_factor = 4; % this derives from observation in Lammers2020 that equivalent 2 state system tends to have ~3-4 fold higher off rate
 % bound kon and r values by calculating values at endpoints
 kon_min = 0;
 kon_max = 1.247;
@@ -287,32 +250,35 @@ koff_vec_raw = linspace(koff_min,koff_max,npt);
 koff_vec = koff_vec_raw*eff2_factor;
 r_min = 0;
 r_max = 13.0;
-r_vec_raw = linspace(r_min,r_max,npt).*(kon_vec+koff_vec)./(kon_vec+koff_vec_raw);
+r_vec_raw = linspace(r_min,r_max,npt);
+r_vec = r_vec_raw.*(kon_vec+koff_vec)./(kon_vec+koff_vec_raw);
 
 
 % pd_fun_mr = @(params) mean_rate_fun(kon_vec, params(1)*koff_vec, params(2)*r_vec, T);
 % pd_fun_in = @(params) intrinsic_noise_fun(kon_vec, params(1)*koff_vec, params(2)*r_vec, T);
-mean_trend_pd = mean_rate_fun(kon_vec, koff_vec_raw, r_vec_raw, T);
-fano_trend_pd = fano_fun(kon_vec, koff_vec_raw, r_vec_raw, T);
-int_trend_pd = intrinsic_noise_fun(kon_vec, koff_vec_raw, r_vec_raw, T)*140/15;
+mean_trend_pd = mean_rate_fun(kon_vec, koff_vec, r_vec, T);
+mean_trend_pd_raw = mean_rate_fun(kon_vec, koff_vec_raw, r_vec_raw, T);
+int_trend_pd_raw = intrinsic_noise_fun(kon_vec, koff_vec_raw, r_vec_raw, T);
+int_trend_pd = intrinsic_noise_fun(kon_vec, koff_vec, r_vec, T);
 
 close all
 
 int_vs_fluo = figure;
 cmap = brewermap([],'Set2');
 hold on
-p = plot(mean_trend_pd,int_trend_pd,'-.','Color','k','LineWidth',2);
+p1 = plot(mean_trend_pd_raw,int_trend_pd_raw,'-','Color','k','LineWidth',2);
+p2 = plot(mean_trend_pd,int_trend_pd,'-.','Color','k','LineWidth',2);
 errorbar(fluo_mean_array(end,:),int_mean_array(end,:),ilb(end,:),iub(end,:),flb(end,:),fub(end,:),'.','Color','k','Capsize',0)
 s = scatter(fluo_mean_array(end,:),int_mean_array(end,:),75,'MarkerFaceColor',cmap(5,:),'MarkerEdgeColor','k');
 
 xlabel('average spot intensity (au)')
-ylabel('intrinsic noise (\delta_{int}^2)')
+ylabel('intrinsic noise (\delta_{int}^2 f)')
 
 set(gca,'Fontsize',14)
-xlim([0 20])
-ylim([0 2e3])
+xlim([0 2.5])
+ylim([0 22])
 % ylim([0 140])
-legend([p s],'prediction','2 spot data','Location','northwest')
+legend([p1 p2 s],'prediction (raw)','prediction (adjusted)','2 spot data','Location','northwest')
 set(gca,'Color',[228,221,209]/255) 
 box on
 ax = gca;
@@ -324,3 +290,41 @@ set(gcf,'color','w');
 
 saveas(int_vs_fluo,[figPath 'int_vs_fluo_pd.png'])
 saveas(int_vs_fluo,[figPath 'int_vs_fluo_pd.pdf'])
+
+% %% calculate total and intrinsic variance for qualifying nuclei as a function of space and time
+% time_window = 1.5*60;
+% ap_window = 2.5;
+% min_nc = 20;
+% 
+% ap_axis = 22.5:1:92.5;
+% time_axis = (12.5:1:47.5)*60;
+% 
+% total_variance_array = NaN(length(time_axis),length(ap_axis));
+% intrinsic_variance_array = NaN(length(time_axis),length(ap_axis));
+% mean_array = NaN(length(time_axis),length(ap_axis));
+% 
+% for a = 1:length(ap_axis)
+%     apc = ap_axis(a);
+%     ap_filter = ap_array>=apc-ap_window & ap_array<=apc+ap_window;
+%     for t = 1:length(time_axis)       
+%        tc = time_axis(t);
+%        ref_n = sum(masterTimeVec >= tc-time_window & masterTimeVec <= tc+time_window);
+%        time_filter = time_array >= tc-time_window & time_array <= tc+time_window;
+%        
+%        % combine filters
+%        at_filter_full = ap_filter & time_filter(:,:,1) & time_filter(:,:,2);
+%        at_filter = nansum(ap_filter & time_filter(:,:,1) & time_filter(:,:,2),1);
+%        f_vec = nansum(fluo_array.*repmat(ap_filter,1,1,2),1);
+%        f1_vec = f_vec(:,:,1);
+%        f2_vec = f_vec(:,:,2);
+%        f1_mean_vec = f1_vec(at_filter==ref_n)/ref_n;
+%        f2_mean_vec = f2_vec(at_filter==ref_n)/ref_n;
+%        
+%        % add values to array
+%        if length(f1_mean_vec) >= min_nc
+%            total_variance_array(t,a) = 0.5*mean((f1_mean_vec-randsample(f2_mean_vec,length(f2_mean_vec),false)).^2);
+%            intrinsic_variance_array(t,a) = 0.5*mean((f1_mean_vec-f2_mean_vec).^2);
+%            mean_array(t,a) = mean([f1_mean_vec f2_mean_vec]);
+%        end
+%     end
+% end    

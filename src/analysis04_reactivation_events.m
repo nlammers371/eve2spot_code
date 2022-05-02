@@ -9,48 +9,48 @@ mkdir(figPath)
 load('../data/masterSet.mat')
 
 %% attempt to use scatters to visualize spatiotemporal activity patterns
-fluo_factor = 1e4;
-fluo_vec = [masterSet.fluo]/fluo_factor;
-fluo_vec(fluo_vec<=1) = 1;
-f_max = prctile(fluo_vec,95);
-fluo_vec(fluo_vec>f_max) = f_max;
-ap_vec = [masterSet.APPosParticle];
-time_vec = [masterSet.time]/60;
-fluo_ft = ~isnan(fluo_vec)&~isnan(time_vec)&~isnan(ap_vec);
+% fluo_factor = 1e4;
+% fluo_vec = [masterSet.fluo]/fluo_factor;
+% fluo_vec(fluo_vec<=1) = 1;
+% f_max = prctile(fluo_vec,95);
+% fluo_vec(fluo_vec>f_max) = f_max;
+% ap_vec = [masterSet.APPosParticle];
+% time_vec = [masterSet.time]/60;
+% fluo_ft = ~isnan(fluo_vec)&~isnan(time_vec)&~isnan(ap_vec);
 
-close all
-act_fig = figure;
-cmap = flipud(brewermap([],'Spectral'));
-colormap(cmap);
-scatter(ap_vec(fluo_ft),time_vec(fluo_ft),fluo_vec(fluo_ft),fluo_vec(fluo_ft),'filled','MarkerEdgeAlpha',0,'MarkerFaceAlpha',0.05)
+%%% Make grid indicating fraction active vs time
+ap_axis = 0:90;
+time_axis = 0:50;
+ap_array = repmat(ap_axis,length(time_axis),1);
+time_array = repmat(time_axis',1,length(ap_axis));
 
-xlabel('% embryo length')
-ylabel('minutes into nc14')
-set(gca,'ydir','reverse')
-set(gca,'Fontsize',14)
-% xlim([0 1])
-% set(gca,'Color',[228,221,209]/255) 
-ylim([0 50])
-xlim([20 90])
-box on
-ax = gca;
-ax.YAxis(1).Color = 'k';
-ax.XAxis(1).Color = 'k';
+ap_vec_nuc = round([masterSet.APPosNucleus]);
+time_vec_rd = round([masterSet.time]/60);
+fluo_vec = round([masterSet.fluo]);
 
+frac_active_array = NaN(length(time_axis),length(ap_axis));
+for a = 1:length(ap_axis)
+    for t = 1:length(time_axis)
+        at_filter = ap_vec_nuc==ap_axis(a) & time_vec_rd==time_axis(t);
+        if sum(at_filter) >= 25
+            frac_active_array(t,a) = mean(~isnan(fluo_vec(at_filter)));
+        end
+    end
+end
 
-
-%% Identify "interesting" cases
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Identify "interesting" cases
 % OFF -> ON
 % ON -> OFF -> ON
 
-big_gap = ceil(15*60/16);
+big_gap = ceil(20*60/16);
 late_on_time = 25*60;
 time_bounds = [3 40]*60;
 minDP = 10;
 minOverlap = 5;
 ap_time = 25;
 nBoots = 100;
-max_on_time = 60*50;
+% max_on_time = 60*50;
 min_dur = 3;
 
 long_flags = false(1,length(masterSet));
@@ -95,34 +95,23 @@ for i = 1:length(masterSet)
     end
 end    
 
-%% Make grid indicating fraction active vs time
-ap_axis = 0:90;
-ap_array = repmat(ap_axis,length(time_axis),1);
-time_axis = 0:50;
-time_array = repmat(time_axis',1,length(ap_axis));
 
-ap_vec_nuc = round([masterSet.APPosNucleus]);
-time_vec_rd = round([masterSet.time]/60);
-fluo_vec = round([masterSet.fluo]);
-
-frac_active_array = NaN(length(time_axis),length(ap_axis));
-for a = 1:length(ap_axis)
-    for t = 1:length(time_axis)
-        at_filter = ap_vec_nuc==ap_axis(a) & time_vec_rd==time_axis(t);
-        if sum(at_filter) >= 25
-            frac_active_array(t,a) = mean(~isnan(fluo_vec(at_filter)));
-        end
-    end
-end
 
 %% Make plot 
 close all
 rng(254);
-n_plot = 100;
+n_plot = 200;
+n_plot = min([length(on_off_fluo_cell) n_plot]);
 line_alpha = 0.75;
 
+bkg_color = [228,221,209]/255;
+bkg_color1 = brighten(bkg_color,0.9);
+bkg_color2 = brighten(bkg_color,-0.9);
+
+bkg_cmap = interp1([1; 127],[bkg_color1 ; bkg_color2],(1:127)');
+
 ra_fig = figure;
-cmap = brewermap([],'Greys');
+cmap = brewermap([],'YlOrRd');
 cmap2 = brewermap([],'Set2');
 colormap(cmap);
 p = pcolor(imgaussfilt(frac_active_array,0.5));
@@ -144,7 +133,7 @@ for ind = randsample(1:length(on_off_fluo_cell),n_plot,false)
     %     t1_vec(0==(f_vec)) = NaN;
         t2_vec(0~=(f_vec)) = NaN;
         plot(ap1_vec,t1_vec,'LineWidth',1,'Color',[cmap2(5,:) 1])
-        plot(ap2_vec,t2_vec,'LineWidth',1,'Color',[cmap2(3,:) 1])
+        plot(ap2_vec,t2_vec,'LineWidth',1,'Color',[cmap2(3,:) 1])                
     end
 end    
 % plot(repelem(35,100),linspace(0,50),'k','LineWidth',1.5)
@@ -167,6 +156,34 @@ ax.XAxis(1).Color = 'k';
 saveas(ra_fig,[figPath 'drift_reactivation.png'])
 saveas(ra_fig,[figPath 'drift_reactivation.pdf'])
 
+%% Plot an example trace
+close all
+rng(234);
+
+plot_ind_vec = randsample(1:length(on_off_fluo_cell),5,false) ;
+trace_fig = figure;
+hold on
+cmap = brewermap(length(plot_ind_vec),'Spectral');
+colormap(cmap);
+
+for p = 1:length(plot_ind_vec)
+    plot_ind = plot_ind_vec(p);
+    plot(on_off_time_cell{plot_ind},on_off_fluo_cell{plot_ind}/1e5,'LineWidth',1.5,'Color',cmap(p,:))
+end    
+    
+xlim([10 50])
+
+xlabel('minutes into nc14')
+ylabel('spot intensity (au)')
+
+set(gca,'Fontsize',14)
+
+box on
+ax = gca;
+ax.YAxis(1).Color = 'k';
+ax.XAxis(1).Color = 'k';
+saveas(trace_fig,[figPath 'on_off_on_traces.png'])
+saveas(trace_fig,[figPath 'on_off_on_traces.pdf'])
 %%
 close all
 
@@ -214,3 +231,24 @@ ax.YAxis(1).Color = 'k';
 ax.XAxis(1).Color = 'k';
 saveas(ra_fig,[figPath 'drift_late_on.png'])
 saveas(ra_fig,[figPath 'drift_late_on.pdf'])
+
+
+% 
+% close all
+% act_fig = figure;
+% cmap = flipud(brewermap([],'Spectral'));
+% colormap(cmap);
+% scatter(ap_vec(fluo_ft),time_vec(fluo_ft),fluo_vec(fluo_ft),fluo_vec(fluo_ft),'filled','MarkerEdgeAlpha',0,'MarkerFaceAlpha',0.05)
+% 
+% xlabel('% embryo length')
+% ylabel('minutes into nc14')
+% set(gca,'ydir','reverse')
+% set(gca,'Fontsize',14)
+% % xlim([0 1])
+% % set(gca,'Color',[228,221,209]/255) 
+% ylim([0 50])
+% xlim([20 90])
+% box on
+% ax = gca;
+% ax.YAxis(1).Color = 'k';
+% ax.XAxis(1).Color = 'k';
